@@ -23,7 +23,7 @@ type EditField = 'title' | 'description' | 'assignee' | 'status' | 'menu' | null
 
 interface ParsedCommand {
   action: ActionType;
-  ticketIdentifier: string | null; // e.g., "MOB-1234" or null for create
+  ticketIdentifier: string | null; // e.g., "TEAM-1234" or null for create
   assigneeName: string | null;
   newStatus: string | null;
   title: string | null;
@@ -42,6 +42,10 @@ export default class AIService {
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService<LinearTrackerBotConfig, true>,
   ) {}
+
+  private get ticketPrefix(): string {
+    return this.config.get<string>('LINEAR_TICKET_PREFIX') || 'TEAM';
+  }
 
   private async fetchLinearUsers(): Promise<LinearUser[]> {
     const now = Date.now();
@@ -115,19 +119,7 @@ CRITICAL RULES FOR DESCRIPTION:
 
 ASSIGNEE MATCHING:
 - Match by any alias, telegram username, or name. Return the linearName.
-  Examples: "flo", "florent", "@Flouflof" -> assigneeName: "florent"
-            "sandy", "sanjay", "@Sandy0209" -> assigneeName: "sanjay"
-            "cyril", "coco", "@cocyril" -> assigneeName: "cyril"
-            "morgan", "@Mrg77i" -> assigneeName: "morgan"
-            "teo", "@NBMXyeu" -> assigneeName: "teo"
-            "delox", "sachadelox", "@sacha_xyz", "goat" -> assigneeName: "sachadelox"
 - If no assignee is mentioned, set assigneeName to null
-
-⚠️ CRITICAL - TWO DIFFERENT PEOPLE NAMED SACHA:
-- "sacha", "marcus", "sacha marcus", "@NBMSacha", "nbmsacha" → assigneeName: "sacha" (this is Sacha Marcus from NBM)
-- "delox", "sachadelox", "@sacha_xyz", "goat" → assigneeName: "sachadelox" (this is Delox)
-When user just says "sacha" without more context, ALWAYS default to "sacha" (Sacha Marcus / NBMSacha).
-Only use "sachadelox" if they specifically say "delox", "sachadelox", "goat", or "@sacha_xyz".
 
 TITLE RULES:
 - Keep it short but descriptive (action + object)
@@ -358,6 +350,8 @@ CONTEXT HANDLING:
       ? `Recent tickets mentioned in this chat:\n${recentTickets.join('\n')}`
       : 'No recent tickets in context.';
 
+    const prefix = this.ticketPrefix;
+
     const systemPrompt = `You are an expert technical writer that parses Telegram messages to understand what action the user wants to perform on Linear tickets.
 
 Available actions:
@@ -365,12 +359,12 @@ Available actions:
 - "edit": Edit an existing ticket (can edit title, description, assignee, or status directly)
 - "cancel": Cancel/archive an existing ticket (recoverable)
 - "delete": Permanently delete a ticket (IRREVERSIBLE)
-- "assign": Change the assignee of an EXISTING ticket (shortcut for edit assignee) - ONLY use if a specific ticket ID like MOB-1234 is mentioned
-- "status": Change the status of an EXISTING ticket (shortcut for edit status) - ONLY use if a specific ticket ID like MOB-1234 is mentioned
+- "assign": Change the assignee of an EXISTING ticket (shortcut for edit assignee) - ONLY use if a specific ticket ID like ${prefix}-1234 is mentioned
+- "status": Change the status of an EXISTING ticket (shortcut for edit status) - ONLY use if a specific ticket ID like ${prefix}-1234 is mentioned
 
 === CRITICAL: DISTINGUISHING "create" vs "assign/status/edit/cancel/delete" ===
 
-THE GOLDEN RULE: Does the message reference an EXISTING ticket identifier (like MOB-1234, MOB-567, etc.)?
+THE GOLDEN RULE: Does the message reference an EXISTING ticket identifier (like ${prefix}-1234, ${prefix}-567, etc.)?
 - NO existing ticket ID mentioned → action is "create" (we're making something NEW)
 - YES existing ticket ID mentioned → action is "assign", "status", "edit", "cancel", or "delete" (we're modifying something EXISTING)
 
@@ -379,13 +373,13 @@ What matters is WHETHER an existing ticket is referenced or not.
 
 If the user talks about:
 - "a ticket", "un ticket", "a task" (indefinite article) → They want to CREATE something new
-- "MOB-1234", "this ticket", "the ticket MOB-XXX" (specific reference) → They want to MODIFY something existing
+- "${prefix}-1234", "this ticket", "the ticket ${prefix}-XXX" (specific reference) → They want to MODIFY something existing
 
 Examples showing the logic:
 - "assign/give/make [PERSON] a ticket about X" → No ticket ID = CREATE
 - "assign/give a ticket to [PERSON] for X" → No ticket ID = CREATE  
-- "assign/reassign MOB-1234 to [PERSON]" → Has ticket ID = ASSIGN existing
-- "change status of MOB-567 to Done" → Has ticket ID = STATUS existing
+- "assign/reassign ${prefix}-1234 to [PERSON]" → Has ticket ID = ASSIGN existing
+- "change status of ${prefix}-567 to Done" → Has ticket ID = STATUS existing
 
 Available team members for assignment:
 ${userListForAI}
@@ -397,7 +391,7 @@ ${ticketContext}
 Respond ONLY with valid JSON in this exact format:
 {
   "action": "create" | "edit" | "cancel" | "delete" | "assign" | "status",
-  "ticketIdentifier": "MOB-1234 or null",
+  "ticketIdentifier": "${prefix}-1234 or null",
   "assigneeName": "linearName or null",
   "newStatus": "status name or null",
   "title": "ticket title for create action or null",
@@ -423,11 +417,6 @@ DESCRIPTION - THIS IS CRITICAL:
   **Task:** What exactly needs to be done?
   **Details:** Any specific technical details, URLs, constraints, or requirements mentioned.
 
-- Example: If user says "move the aggregator latency to railway", the description should be:
-  "**Context:** The aggregator latency monitoring needs to be migrated to a new infrastructure.
-   **Task:** Move the aggregator latency service/monitoring from current infrastructure to Railway platform.
-   **Details:** This involves setting up the service on Railway and ensuring latency tracking continues to work properly."
-
 - If the message includes chat history, summarize ALL relevant context from the conversation
 - Include any technical terms, service names, or specifics mentioned
 - If something is unclear, mention what might need clarification
@@ -444,38 +433,15 @@ WHEN TO SET assigneeName:
 
 ⚠️ CRITICAL - "ME", "MYSELF", "MOI" RESOLUTION:
 - When user says "to me", "for me", "assign me", "moi", look at [Message sent by: @username] at the end
-- Match that @username to find the corresponding linearName
-- Example: If message says "assign me a ticket" and [Message sent by: @Flouflof], then assigneeName: "florent"
-- Example: If message says "create a ticket for me" and [Message sent by: @NBMSacha], then assigneeName: "sacha"
-
-Examples:
-- "integrate a ticket to sacha" → assigneeName: "sacha"
-- "create a ticket for florent" → assigneeName: "florent"
-- "assign cyril a task about X" → assigneeName: "cyril"
-- "give sandy the bug fix" → assigneeName: "sanjay"
-- "assign me a ticket" + [Message sent by: @Flouflof] → assigneeName: "florent"
-- "create a ticket for me" + [Message sent by: @cocyril] → assigneeName: "cyril"
+- Match that @username to find the corresponding linearName from the team list above
 
 === ASSIGNEE MATCHING (CRITICAL) ===
 
-- ALWAYS return the exact "linearName" from the list above for assigneeName
-- Use FUZZY MATCHING: if user writes something similar to an alias, match it:
-  - "floflo", "flo", "flouf", "flou" → assigneeName: "florent"
-  - "cycy", "cyr", "cyri" → assigneeName: "cyril"  
-  - "sandy", "sand", "sanj" → assigneeName: "sanjay"
-  - "morg", "morgs" → assigneeName: "morgan"
-  - "aure", "aurel" → assigneeName: "aurelien"
-  - "yass", "krab" → assigneeName: "yassine"
-  - "pet", "peter", "pan" → assigneeName: "peter"
+- ALWAYS return the exact "linearName" from the team list above for assigneeName
+- Use FUZZY MATCHING: if user writes something similar to an alias, match it to the closest linearName
 - If a Telegram username is mentioned (@xxx), find the matching linearName
 - NEVER return the telegram username or email as assigneeName, ONLY the linearName
 - NEVER return the string "null" - use actual JSON null if no assignee
-
-⚠️ CRITICAL - TWO DIFFERENT PEOPLE NAMED SACHA:
-- "sacha", "marcus", "sacha marcus", "@NBMSacha", "nbmsacha" → assigneeName: "sacha" (this is Sacha Marcus from NBM)
-- "delox", "sachadelox", "@sacha_xyz", "goat" → assigneeName: "sachadelox" (this is Delox)
-When user just says "sacha" without more context, ALWAYS default to "sacha" (Sacha Marcus / NBMSacha).
-Only use "sachadelox" if they specifically say "delox", "sachadelox", "goat", or "@sacha_xyz".
 
 === OTHER RULES ===
 
@@ -483,7 +449,7 @@ Only use "sachadelox" if they specifically say "delox", "sachadelox", "goat", or
   - If user specifies what to edit (e.g., "edit the title to X"), set editField and newValue
   - If user just says "edit this ticket" without specifying, set editField to "menu"
 - For "cancel", "delete": identify the ticket from context or message
-- For "assign": ONLY use this action if a specific ticket identifier (like MOB-1234) is mentioned. Otherwise use "create".
+- For "assign": ONLY use this action if a specific ticket identifier (like ${prefix}-1234) is mentioned. Otherwise use "create".
 - For "status": identify the ticket AND the new status
 - If the user says "this ticket", "ce ticket", "le ticket", look at recent tickets context
 - If you can't determine the ticket, set ticketIdentifier to the most recent one from context
@@ -492,15 +458,15 @@ Only use "sachadelox" if they specifically say "delox", "sachadelox", "goat", or
 === EXAMPLES (showing the Golden Rule in action) ===
 
 NO ticket ID = CREATE:
-- "assign me a ticket to X" → create (no MOB-XXX)
-- "give Sandy a task for Y" → create (no MOB-XXX)
-- "can you assign a ticket to @Flouflof on Z" → create (no MOB-XXX)
-- "make a ticket for Cyril about W" → create (no MOB-XXX)
+- "assign me a ticket to X" → create (no ${prefix}-XXX)
+- "give [person] a task for Y" → create (no ${prefix}-XXX)
+- "can you assign a ticket to @[user] on Z" → create (no ${prefix}-XXX)
+- "make a ticket for [person] about W" → create (no ${prefix}-XXX)
 
 HAS ticket ID = MODIFY EXISTING:
-- "assign MOB-1234 to Cyril" → assign (has MOB-1234)
-- "change MOB-567 status to Done" → status (has MOB-567)
-- "cancel MOB-890" → cancel (has MOB-890)`;
+- "assign ${prefix}-1234 to [person]" → assign (has ${prefix}-1234)
+- "change ${prefix}-567 status to Done" → status (has ${prefix}-567)
+- "cancel ${prefix}-890" → cancel (has ${prefix}-890)`;
 
     try {
       const res = await axios.post(
@@ -559,4 +525,3 @@ HAS ticket ID = MODIFY EXISTING:
     }
   }
 }
-
