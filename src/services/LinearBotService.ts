@@ -328,7 +328,7 @@ Ready to track your tickets! 📝`;
       if (!cleanMessage.trim()) {
         return ctx.reply(
           `💡 <b>How to use me:</b>\n\n` +
-          `📝 <b>Create:</b> <i>"create a ticket for Sandy to fix the login bug"</i>\n` +
+          `📝 <b>Create:</b> <i>"create a ticket for [name] to fix the login bug"</i>\n` +
           `✏️ <b>Edit:</b> <i>"edit this ticket"</i> or <i>"edit ${this.getExampleTicketId()}"</i>\n` +
           `❌ <b>Cancel:</b> <i>"cancel this ticket"</i>\n` +
           `👤 <b>Assign:</b> <i>"assign this ticket to [name]"</i>\n` +
@@ -409,7 +409,7 @@ Ready to track your tickets! 📝`;
             processingMsg.message_id,
             undefined,
             `❌ <b>Could not understand your request</b>\n\nTry something like:\n` +
-            `<i>"Create a ticket for Sandy to fix the login bug"</i>\n` +
+            `<i>"Create a ticket for [name] to fix the login bug"</i>\n` +
             `<i>"Cancel this ticket"</i>\n` +
             `<i>"Assign ${this.getExampleTicketId()} to [name]"</i>`,
             { parse_mode: 'HTML' },
@@ -530,7 +530,7 @@ Ready to track your tickets! 📝`;
       const issueIdentifier = ctx.match[1];
       await ctx.answerCbQuery();
       await ctx.editMessageText(
-        `👤 <b>Change Assignee for ${issueIdentifier}</b>\n\nUse:\n<code>@${this.botUsername} assign ${issueIdentifier} to [name]</code>\n\nExample: <code>@${this.botUsername} assign ${issueIdentifier} to florent</code>`,
+        `👤 <b>Change Assignee for ${issueIdentifier}</b>\n\nUse:\n<code>@${this.botUsername} assign ${issueIdentifier} to [name]</code>`,
         { parse_mode: 'HTML' },
       );
     });
@@ -1542,7 +1542,7 @@ Ready to track your tickets! 📝`;
     originalSenderUsername: string,
     chatContext: string,
   ): Promise<void> {
-    const adminUsername = this.config.get<string>('TELEGRAM_ADMIN_USERNAME') || 'Flouflof';
+    const adminUsername = this.config.get<string>('TELEGRAM_ADMIN_USERNAME');
     const adminChatId = this.config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
     
     const adminMessage = `⚠️ <b>Error Report</b>\n\n` +
