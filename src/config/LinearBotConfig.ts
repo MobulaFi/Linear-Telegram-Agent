@@ -11,6 +11,7 @@ const LinearTrackerBotConfig = z.object({
   LINEAR_API_KEY: z.string(),
   LINEAR_TEAM_ID: z.string(),
   LINEAR_WORKSPACE_SLUG: z.string().default(''), // Your Linear workspace slug (e.g., "mycompany" for linear.app/mycompany)
+  LINEAR_TICKET_PREFIX: z.string().default('TEAM'), // Ticket prefix (e.g., "MOB" for MOB-1234, "ENG" for ENG-5678)
   LINEAR_WEBHOOK: z.string().optional().default(''),
   LINEAR_SIGNING_SECRETS: z.string().optional().default(''),
   LINEAR_API_URL: z.string().default('https://api.linear.app/graphql'),
