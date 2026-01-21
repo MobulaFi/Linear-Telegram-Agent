@@ -493,7 +493,7 @@ Ready to track your tickets! 📝`;
       const issueIdentifier = ctx.match[1];
       await ctx.answerCbQuery();
       await ctx.editMessageText(
-        `📌 <b>Edit Title for ${issueIdentifier}</b>\n\nReply to this message with the new title, or use:\n<code>@${this.botUsername} edit titre ${issueIdentifier} : New Title</code>`,
+        `📌 <b>Edit Title for ${issueIdentifier}</b>\n\nReply to this message with the new title, or use:\n<code>@${this.botUsername} edit title ${issueIdentifier} : New Title</code>`,
         { parse_mode: 'HTML' },
       );
       // Store pending edit in Redis
