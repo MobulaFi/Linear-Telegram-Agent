@@ -6,6 +6,7 @@ A Telegram bot for ticket management in Linear. Create, edit, assign, and track 
 
 - Create Linear tickets from Telegram with natural language
 - AI-powered command parsing using OpenAI
+- Image support: send screenshots or photos with your request, the AI analyzes them and includes details in the ticket
 - Assign tickets to team members by name or alias
 - Update ticket status
 - Edit ticket title, description, or assignee
@@ -154,6 +155,20 @@ Mention the bot to use natural language:
 @bot edit TEAM-890
 @bot cancel TEAM-123
 ```
+
+### With Images
+
+Send a photo with a caption mentioning the bot. The AI will analyze the image and include relevant details in the ticket description.
+
+```
+[Photo attached]
+@bot create a ticket for the bug shown in this screenshot
+```
+
+The bot supports:
+- Screenshots of bugs or errors
+- UI mockups or designs
+- Any image relevant to the ticket context
 
 ## Running
 
