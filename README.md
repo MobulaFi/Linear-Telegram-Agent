@@ -25,8 +25,8 @@ A Telegram bot for ticket management in Linear. Create, edit, assign, and track 
 ## Installation
 
 ```bash
-git clone https://github.com/Flotapponnier/Linear_Telegram_Agent.git
-cd Linear_Telegram_Agent
+git clone https://github.com/MobulaFi/Linear-Telegram-Agent.git
+cd Linear-Telegram-Agent
 npm install
 cp .env.example .env
 ```
